@@ -1,0 +1,48 @@
+name: MiTV_24-7_NonStop_Engine
+
+on:
+  schedule:
+    - cron: '0 */5 * * *'
+  push:
+    paths:
+      - 'playlist.m3u'
+  workflow_dispatch:
+
+jobs:
+  MiTV_Cloud_Stream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Code Checkout
+        uses: actions/checkout@v3
+
+      - name: 2. Install FFmpeg Core
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-liberation
+
+      - name: 3. Start Animated Logo & Text Stream
+        run: |
+          STREAM_URL=$(grep -v '^#' playlist.m3u | head -n 1)
+          LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
+          
+          echo "MiTV Network is launching Animated stream: $STREAM_URL"
+
+          # Animation Logic:
+          # rotate='t*PI/2.5': Logo ko ghumane ke liye (Har 5s mein cycle)
+          # drawtext: Logo ke niche Muazz Iqbal ka naam likhne ke liye
+          
+          timeout 5.8h ffmpeg -re \
+          -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 2 \
+          -stream_loop -1 \
+          -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+          -i "$STREAM_URL" -i "$LOGO_URL" \
+          -filter_complex \
+          "[1:v]scale=150:-1,rotate='if(between(mod(t,10),0,2), t*PI, 0)':c=none:ow=rotw(0):oh=roth(0)[logo]; \
+           [0:v]zoompan=z='1.1':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1280x720,hflip, \
+           drawtext=text='Provided by MUAAZ IQBAL':fontcolor=white:fontsize=18:x=20:y=160:shadowcolor=black:shadowx=2:shadowy=2[v_base]; \
+           [v_base][logo]overlay=20:10" \
+          -af "asetrate=44100*1.05,aresample=44100" \
+          -c:v libx264 -preset veryfast \
+          -crf 25 -maxrate 2500k -bufsize 5000k \
+          -pix_fmt yuv420p -g 50 -c:a aac -b:a 128k \
+          -f flv "rtmp://a.rtmp.youtube.com/live2/ffw8-ay98-j677-qx9h-3g4g" || true
