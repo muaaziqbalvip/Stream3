@@ -20,43 +20,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-liberation
 
-      - name: 3. Start Professional Stream (Fixed Connection)
+      - name: 3. Start Professional Stream (Fixed)
         run: |
-          # Playlist se link uthana
           STREAM_URL=$(grep -v '^#' playlist.m3u | head -n 1)
           LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
           
-          echo "Connecting to: $STREAM_URL"
-
-          # Fixed FFmpeg Command
-          # -reconnect aur -reconnect_streamed ko 1 kiya hai taake link refresh ho
-          # -analyzeduration aur -probesize add kiya hai taake connection foran setup ho
-          
-          timeout 5.8h ffmpeg -re -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
-          -analyzeduration 10M -probesize 10M \
-          -stream_loop -1 \
-          -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" \
-          -i "$STREAM_URL" -i "$LOGO_URL" \
-          -filter_complex \
-          "[0:v]crop=iw:ih-40:0:40,scale=1280:720[v_cropped]; \
-           [1:v]scale=150:-1,rotate='if(between(mod(t,10),0,2), t*PI, 0)':c=none:ow=rotw(0):oh=roth(0)[logo]; \
-           [v_cropped]drawtext=text='Provided by MUAAZ IQBAL':fontcolor=white:fontsize=16:x=20:y=150:shadowcolor=black:shadowx=2:shadowy=2[v_base]; \
-           [v_base][logo]overlay=20:10" \
-          -af "asetrate=44100*1.02,aresample=44100" \
-          -c:v libx264 -preset superfast -tune zerolatency \
-          -crf 28 -maxrate 2000k -bufsize 4000k \
-          -pix_fmt yuv420p -g 60 \
-          -c:a aac -b:a 128k -ar 44100 \
-          -f flv "rtmp://a.rtmp.youtube.com/live2/ffw8-ay98-j677-qx9h-3g4g" || true
-          -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-          -i "$STREAM_URL" -i "$LOGO_URL" \
-          -filter_complex \
-          "[1:v]scale=150:-1,rotate='if(between(mod(t,10),0,2), t*PI, 0)':c=none:ow=rotw(0):oh=roth(0)[logo]; \
-           [0:v]zoompan=z='1.1':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1280x720,hflip, \
-           drawtext=text='Provided by MUAAZ IQBAL':fontcolor=white:fontsize=18:x=20:y=160:shadowcolor=black:shadowx=2:shadowy=2[v_base]; \
-           [v_base][logo]overlay=20:10" \
-          -af "asetrate=44100*1.05,aresample=44100" \
-          -c:v libx264 -preset veryfast \
-          -crf 25 -maxrate 2500k -bufsize 5000k \
-          -pix_fmt yuv420p -g 50 -c:a aac -b:a 128k \
-          -f flv "rtmp://a.rtmp.youtube.com/live2/x4xr-fr4e-57az-d095-bqbm" || true
+          # Sab kuch aik hi line mein kar diya hai taake "Command not found" ka masla na aaye
+          timeout 5.8h ffmpeg -re -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 -analyzeduration 10M -probesize 10M -stream_loop -1 -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" -i "$STREAM_URL" -i "$LOGO_URL" -filter_complex "[0:v]crop=iw:ih-40:0:40,scale=1280:720[v_cropped]; [1:v]scale=150:-1,rotate='if(between(mod(t,10),0,2), t*PI, 0)':c=none:ow=rotw(0):oh=roth(0)[logo]; [v_cropped]drawtext=text='Provided by MUAAZ IQBAL':fontcolor=white:fontsize=16:x=20:y=150:shadowcolor=black:shadowx=2:shadowy=2[v_base]; [v_base][logo]overlay=20:10" -af "asetrate=44100*1.02,aresample=44100" -c:v libx264 -preset superfast -tune zerolatency -crf 28 -maxrate 2000k -bufsize 4000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 -f flv "rtmp://a.rtmp.youtube.com/live2/x4xr-fr4e-57az-d095-bqbm" || true
