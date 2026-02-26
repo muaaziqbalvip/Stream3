@@ -1,46 +1,31 @@
-name: MiTV_24-7_NonStop_Engine
+name: MiTV SADA Streamer
 
 on:
-  schedule:
-    - cron: '0 */5 * * *' # Har 5 ghante baad khud start hoga
-  push:
-    paths:
-      - 'playlist.m3u'
-  workflow_dispatch: # Manual start karne ke liye
+  workflow_dispatch:
+    inputs:
+      stream_url:
+        description: 'M3U8 Link yahan paste karein'
+        required: true
+        default: ''
 
 jobs:
-  MiTV_Cloud_Stream:
+  mitv_live:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Code Checkout
-        uses: actions/checkout@v3
+    - name: 1. Install FFmpeg
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
 
-      - name: 2. Install FFmpeg Core
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+    - name: 2. Start Live Stream (With Logo)
+      run: |
+        # Logo URL set kiya gaya hai
+        LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
 
-      - name: 3. Start Professional Streaming (With Logo & Playlist)
-        run: |
-          # Playlist se pehla link uthana (Jo # se shuru na ho)
-          STREAM_URL=$(grep -v '^#' playlist.m3u | head -n 1 | tr -d '\r')
-          LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
-          
-          echo "MiTV Network is starting stream from Playlist..."
-          echo "Target Link: $STREAM_URL"
-
-          # timeout 5.8h taake workflow 6h ki limit se pehle safely band ho kar agla start ho sake
-          # -stream_loop -1 input se pehle lagaya hai taake stream break na ho
-          timeout 5.8h ffmpeg -re -stream_loop -1 \
-          -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 4 \
-          -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-          -i "$STREAM_URL" -i "$LOGO_URL" \
-          -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10" \
-          -c:v libx264 -preset ultrafast -b:v 2500k \
-          -maxrate 3000k -bufsize 6000k -pix_fmt yuv420p \
-          -g 60 -c:a aac -b:a 128k -ar 44100 \
-          -f flv "rtmp://a.rtmp.youtube.com/live2/x4xr-fr4e-57az-d095-bqbm" || true
-
-      - name: 4. Finish Session
-        if: always()
-        run: echo "Stream session complete. Next scheduled run will start soon."
+        # FFmpeg command jis mein logo filter shamil hai
+        ffmpeg -re -stream_loop -1 -user_agent "Mozilla/5.0" \
+        -i "${{ github.event.inputs.stream_url }}" -i "$LOGO_URL" \
+        -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10" \
+        -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 6000k \
+        -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 \
+        -f flv "rtmp://a.rtmp.youtube.com/live2/buhp-wyep-qsw6-w1d1-fvuh"
