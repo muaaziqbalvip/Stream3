@@ -28,4 +28,4 @@ jobs:
         -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10" \
         -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 6000k \
         -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 \
-        -f flv "rtmp://a.rtmp.youtube.com/live2/buhp-wyep-qsw6-w1d1-fvuh"
+        -f flv "rtmp://a.rtmp.youtube.com/live2/x4xr-fr4e-57az-d095-bqbm"
