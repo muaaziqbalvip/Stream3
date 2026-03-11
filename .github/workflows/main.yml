@@ -3,8 +3,8 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '*/15 * * * *' # Auto-run every 15 mins
-  workflow_dispatch: # <--- Ye line add karne se "Run workflow" ka button aa jaye ga
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
 
 jobs:
   stream:
@@ -20,13 +20,14 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install hijri-converter
+          pip install hijri-converter yt-dlp
           sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Generate Stream
         run: |
           mkdir -p live
-          # Run logic to get the FFmpeg command and execute it
+          mkdir -p downloads
+          # Logic script ab videos download bhi kare ga aur command bhi banaye ga
           python3 logic.py > run_stream.sh
           chmod +x run_stream.sh
           timeout 12m ./run_stream.sh || true
@@ -34,5 +35,7 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
+          folder: live
+          branch: gh-pages
           folder: live
           branch: gh-pages
