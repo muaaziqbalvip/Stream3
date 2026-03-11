@@ -1,4 +1,4 @@
-name: Muslim Islam Live Stream
+name: Muslim Islam Live Streams
 on:
   push:
     branches: [ main ]
@@ -35,7 +35,5 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: live
-          branch: gh-pages
           folder: live
           branch: gh-pages
