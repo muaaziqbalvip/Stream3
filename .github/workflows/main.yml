@@ -24,24 +24,17 @@ jobs:
           sudo apt-get install -y ffmpeg wget python3-pip
           pip install hijri-converter
 
-      - name: 3. Fetching Content (Power Download)
+      - name: 3. Fetching Content
         run: |
+          # Agar input khali ho to default link use karein
           VIDEO_URL="${{ github.event.inputs.video_url }}"
-          # Link theek karna agar raw=1 missing ho
-          if [[ "$VIDEO_URL" == *"dropbox.com"* && "$VIDEO_URL" != *"raw=1"* ]]; then
-            VIDEO_URL="${VIDEO_URL//?dl=0/?raw=1}"
+          if [ -z "$VIDEO_URL" ]; then
+            VIDEO_URL="https://www.dropbox.com/scl/fi/40bs4vdqe4396dpxd9srq/lv_0_20260306070513.mp4?rlkey=7nu8rzif6ojyvxmqg5zim5vm8&st=msaab5va&raw=1"
           fi
           
           echo "Downloading from: $VIDEO_URL"
-          # -c (continue) aur --timeout lagaya hai takay file poori download ho
-          wget -c --timeout=30 --tries=5 -O main_video.mp4 "$VIDEO_URL"
-          
-          # Check if file exists and has size
-          if [ ! -s main_video.mp4 ]; then 
-            echo "Error: Video file is empty or download failed!"; 
-            exit 1; 
-          fi
-          ls -lh main_video.mp4
+          wget -O main_video.mp4 "$VIDEO_URL"
+          if [ ! -s main_video.mp4 ]; then echo "Download failed!"; exit 1; fi
 
       - name: 4. MiTV Animation Engine
         run: |
@@ -50,16 +43,20 @@ jobs:
           python3 -c "from hijri_converter import Gregorian; import datetime; t=datetime.date.today(); h=Gregorian(t.year,t.month,t.day).to_hijri(); print(f'{h.day} {h.month_name()} {h.year} AH')" > islamic_date.txt
           ISLAMIC_DATE=$(cat islamic_date.txt)
           
-          # FFmpeg Command - Fixed for "moov atom" by using local file properly
+          # Default values agar JSON missing ho
+          BAR_TEXT="Muslim Islam Live TV - MiTV Network"
+          PROG_NOW="Live Transmission"
+          
+          # FFmpeg Command
           ffmpeg -re -i main_video.mp4 -i "https://i.ibb.co/v2yPCQT/file-00000000305071fa945b58b012ac072b.png" \
           -filter_complex \
           "[0:v]scale=1280:720,setdar=16/9[bg]; \
            [bg]drawbox=y=ih-50:color=blue@0.8:width=iw:height=50:t=fill[v_bar]; \
-           [v_bar]drawtext=fontfile='assets/urdu_font.ttf':text='Muslim Islam Live TV - MiTV Network':x=w-mod(t*100\,w+tw):y=h-40:fontcolor=white:fontsize=28[v_scroll]; \
+           [v_bar]drawtext=fontfile='assets/urdu_font.ttf':text='$BAR_TEXT':x=w-mod(t*100\,w+tw):y=h-40:fontcolor=white:fontsize=28[v_scroll]; \
            [1:v]scale=100:-1[logo_s]; \
            [v_scroll][logo_s]overlay=main_w-120:main_h-130[v_logo]; \
            [v_logo]drawtext=fontfile='assets/main_font.ttf':text='$ISLAMIC_DATE':x=main_w-220:y=main_h-40:fontcolor=yellow:fontsize=20[v_date]; \
-           [v_date]drawtext=fontfile='assets/main_font.ttf':text='NOW\: Live':x=20:y=20+10*sin(t*2):fontcolor=white:fontsize=24:box=1:boxcolor=black@0.6[v_prog]" \
+           [v_date]drawtext=fontfile='assets/main_font.ttf':text='NOW\: $PROG_NOW':x=20:y=20+10*sin(t*2):fontcolor=white:fontsize=24:box=1:boxcolor=black@0.6[v_prog]" \
           -map "[v_prog]" -map 0:a -vcodec libx264 -preset veryfast -b:v 2000k -acodec aac -f hls -hls_time 6 -hls_list_size 5 -hls_flags delete_segments live/index.m3u8
 
       - name: 5. Deploy
