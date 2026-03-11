@@ -1,50 +1,89 @@
 import json
 import os
 import datetime
+import subprocess
+import sys
 from hijri_converter import Gregorian
 
+# --- PATHS ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+LOGO_PATH = os.path.join(ASSETS_DIR, "logo.png")
+URDU_FONT = os.path.join(ASSETS_DIR, "urdu_font.ttf")
+ENG_FONT = os.path.join(ASSETS_DIR, "main_font.ttf")
+
 def get_islamic_date():
-    today = datetime.date.today()
-    hijri = Gregorian(today.year, today.month, today.day).to_hijri()
-    return f"{hijri.day} {hijri.month_name()} {hijri.year} AH"
+    try:
+        today = datetime.date.today()
+        hijri = Gregorian(today.year, today.month, today.day).to_hijri()
+        return f"{hijri.day} {hijri.month_name()} {hijri.year} AH"
+    except:
+        return ""
+
+def download_video(url, filename):
+    """Downloads video using yt-dlp for better stability."""
+    output_path = os.path.join(DOWNLOAD_DIR, filename)
+    # Agar file pehle se maujood hai to dobara download nahi kare ga
+    if not os.path.exists(output_path):
+        try:
+            subprocess.run([
+                'yt-dlp', 
+                '-o', output_path, 
+                '--no-check-certificate',
+                url
+            ], check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            return None
+    return output_path
 
 def generate_ffmpeg_command():
-    # Load JSONs
-    with open('bar.json', 'r') as f: bar_data = json.load(f)
-    with open('program.json', 'r') as f: prog_data = json.load(f)
-    with open('ad.json', 'r') as f: ad_data = json.load(f)
-    with open('playlist.json', 'r') as f: play_data = json.load(f)
+    # Load JSON data
+    try:
+        with open('playlist.json', 'r') as f: play_data = json.load(f)
+        with open('bar.json', 'r') as f: bar_data = json.load(f)
+        with open('program.json', 'r') as f: prog_data = json.load(f)
+        with open('ad.json', 'r') as f: ad_data = json.load(f)
+    except Exception as e:
+        return f"echo 'JSON Error: {e}'"
+
+    # Download Main Video
+    main_video_url = play_data['videos'][0]
+    local_video = download_video(main_video_url, "main_video.mp4")
+    
+    if not local_video:
+        return "echo 'Error: Could not download main video.'"
+
+    # Check for Ads
+    if ad_data.get('status') == "on":
+        ad_local = download_video(ad_data['ad_url'], "ad_video.mp4")
+        if ad_local:
+            local_video = ad_local
 
     islamic_date = get_islamic_date()
-    logo_url = "https://i.ibb.co/v2yPCQT/file-00000000305071fa945b58b012ac072b.png"
     
-    # Base Inputs
-    inputs = ""
-    for v in play_data['videos']:
-        inputs += f"-i {v} "
-    
-    # Filter Complex (Animations and Overlays)
-    # 1. Scrolling Bar (Bottom)
-    # 2. Program Info (Top Right - Animated)
-    # 3. Logo & Islamic Date (Bottom Right)
-    
-    filter_complex = (
-        f"[0:v]pad=iw:ih+40:0:0:black[v1]; " # Space for bar
-        f"[v1]drawbox=y=ih-40:color=blue@0.8:width=iw:height=40:t=fill[v2]; " # Blue Bar
-        f"[v2]drawtext=text='{bar_data['text']}':x=w-mod(t*100\,w+tw):y=h-30:fontcolor=white:fontsize=24[v3]; " # Scroll
-        f"movie=logo.png[logo]; [v3][logo]overlay=main_w-160:main_h-120[v4]; " # Logo
-        f"[v4]drawtext=text='{islamic_date}':x=main_w-150:y=main_h-35:fontcolor=yellow:fontsize=18[v5]; " # Date
-        f"[v5]drawtext=text='NOW\: {prog_data['now']}':x=w-200:y=20+20*sin(t):fontcolor=white:fontsize=22:box=1:boxcolor=black@0.5[v_final]" # Animated Program
+    # FFmpeg Filter Complex (Animations)
+    filter_chain = (
+        f"[0:v]scale=1280:720,setdar=16/9[bg]; "
+        f"[bg]drawbox=y=ih-50:color=blue@0.7:width=iw:height=50:t=fill[v_bar]; "
+        f"[v_bar]drawtext=fontfile='{URDU_FONT}':text='{bar_data['text']}':"
+        f"x=w-mod(t*100\,w+tw):y=h-40:fontcolor=white:fontsize=28[v_scroll]; "
+        f"[1:v]scale=100:-1[logo_s]; "
+        f"[v_scroll][logo_s]overlay=main_w-120:main_h-130[v_logo]; "
+        f"[v_logo]drawtext=fontfile='{ENG_FONT}':text='{islamic_date}':"
+        f"x=main_w-220:y=main_h-40:fontcolor=yellow:fontsize=20[v_date]; "
+        f"[v_date]drawtext=fontfile='{ENG_FONT}':text='NOW\: {prog_data['now']}':"
+        f"x=20:y=20+10*sin(t*2):fontcolor=white:fontsize=24:box=1:boxcolor=black@0.6[v_prog]"
     )
-    
-    # Add Ads logic if status is 'on'
-    input_source = play_data['videos'][0] # Simplified for example
-    if ad_data['status'] == "on":
-        input_source = ad_data['ad_url']
 
-    command = f"ffmpeg -re -i {input_source} -i {logo_url} -filter_complex \"{filter_complex}\" " \
-              f"-vcodec libx264 -preset veryfast -maxrate 3000k -bufsize 6000k " \
-              f"-f hls -hls_time 4 -hls_list_size 10 -hls_flags delete_segments live/index.m3u8"
+    command = (
+        f"ffmpeg -re -i {local_video} -i {LOGO_PATH} "
+        f"-filter_complex \"{filter_chain}\" "
+        f"-map \"[v_prog]\" -map 0:a "
+        f"-vcodec libx264 -preset veryfast -b:v 2000k -maxrate 2000k -bufsize 4000k "
+        f"-acodec aac -b:a 128k "
+        f"-f hls -hls_time 6 -hls_list_size 5 -hls_flags delete_segments live/index.m3u8"
+    )
     
     return command
 
