@@ -9,7 +9,7 @@ on:
       video_url:
         description: 'Dropbox Video Link (&raw=1 lazmi ho)'
         required: true
-        default: 'https://www.dropbox.com/scl/fi/40bs4vdqe4396dpxd9srq/lv_0_20260306070513.mp4?rlkey=7nu8rzif6ojyvxmqg5zim5vm8&st=msaab5va&raw=1'
+        default: 'https://www.dropbox.com/scl/fi/ope7hg3vwr2dv9hxj7efu/lv_0_20260308130028.mp4?rlkey=fsxfleamugvd1w7fyi8to3usq&st=muxc5kk1&raw=1'
 
 jobs:
   mitv_hls_broadcast:
