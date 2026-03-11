@@ -11,49 +11,44 @@ on:
         required: true
         default: 'https://www.dropbox.com/scl/fi/40bs4vdqe4396dpxd9srq/lv_0_20260306070513.mp4?rlkey=7nu8rzif6ojyvxmqg5zim5vm8&st=msaab5va&raw=1'
 
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
 jobs:
   mitv_hls_broadcast:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. System Initialization
-        run: |
-          echo "Initializing MiTV Engine..."
-          for i in {1..200}; do echo "System Check Module $i: OK"; done
-        
-      - name: 2. Checkout Code
+      - name: 1. Code Checkout
         uses: actions/checkout@v3
 
-      - name: 3. Install Media Tools
+      - name: 2. Install Tools
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg wget python3-pip
           pip install hijri-converter
-          for i in {201..400}; do echo "Dependency Verification $i: SUCCESS"; done
 
-      - name: 4. Fetching Video Content
+      - name: 3. Fetching Content
         run: |
-          echo "Downloading MiTV Content..."
-          wget -O main_video.mp4 "${{ github.event.inputs.video_url }}"
-          if [ ! -s main_video.mp4 ]; then echo "Error: Download failed!"; exit 1; fi
+          # Agar input khali ho to default link use karein
+          VIDEO_URL="${{ github.event.inputs.video_url }}"
+          if [ -z "$VIDEO_URL" ]; then
+            VIDEO_URL="https://www.dropbox.com/scl/fi/40bs4vdqe4396dpxd9srq/lv_0_20260306070513.mp4?rlkey=7nu8rzif6ojyvxmqg5zim5vm8&st=msaab5va&raw=1"
+          fi
+          
+          echo "Downloading from: $VIDEO_URL"
+          wget -O main_video.mp4 "$VIDEO_URL"
+          if [ ! -s main_video.mp4 ]; then echo "Download failed!"; exit 1; fi
 
-      - name: 5. Professional Animation Engine
+      - name: 4. MiTV Animation Engine
         run: |
           mkdir -p live
-          # Islamic Date Calculation
+          # Islamic Date
           python3 -c "from hijri_converter import Gregorian; import datetime; t=datetime.date.today(); h=Gregorian(t.year,t.month,t.day).to_hijri(); print(f'{h.day} {h.month_name()} {h.year} AH')" > islamic_date.txt
-          
           ISLAMIC_DATE=$(cat islamic_date.txt)
-          BAR_TEXT=$(python3 -c "import json; print(json.load(open('bar.json'))['text'])")
-          PROG_NOW=$(python3 -c "import json; print(json.load(open('program.json'))['now'])")
-          LOGO="https://i.ibb.co/v2yPCQT/file-00000000305071fa945b58b012ac072b.png"
-
-          echo "Starting FFmpeg with Animated Filters..."
-          ffmpeg -re -i main_video.mp4 -i "$LOGO" \
+          
+          # Default values agar JSON missing ho
+          BAR_TEXT="Muslim Islam Live TV - MiTV Network"
+          PROG_NOW="Live Transmission"
+          
+          # FFmpeg Command
+          ffmpeg -re -i main_video.mp4 -i "https://i.ibb.co/v2yPCQT/file-00000000305071fa945b58b012ac072b.png" \
           -filter_complex \
           "[0:v]scale=1280:720,setdar=16/9[bg]; \
            [bg]drawbox=y=ih-50:color=blue@0.8:width=iw:height=50:t=fill[v_bar]; \
@@ -62,17 +57,10 @@ jobs:
            [v_scroll][logo_s]overlay=main_w-120:main_h-130[v_logo]; \
            [v_logo]drawtext=fontfile='assets/main_font.ttf':text='$ISLAMIC_DATE':x=main_w-220:y=main_h-40:fontcolor=yellow:fontsize=20[v_date]; \
            [v_date]drawtext=fontfile='assets/main_font.ttf':text='NOW\: $PROG_NOW':x=20:y=20+10*sin(t*2):fontcolor=white:fontsize=24:box=1:boxcolor=black@0.6[v_prog]" \
-          -map "[v_prog]" -map 0:a \
-          -vcodec libx264 -preset veryfast -b:v 2000k -maxrate 2500k -bufsize 5000k \
-          -c:a aac -b:a 128k \
-          -f hls -hls_time 6 -hls_list_size 5 -hls_flags delete_segments live/index.m3u8
+          -map "[v_prog]" -map 0:a -vcodec libx264 -preset veryfast -b:v 2000k -acodec aac -f hls -hls_time 6 -hls_list_size 5 -hls_flags delete_segments live/index.m3u8
 
-      - name: 6. Deploy to GitHub Pages
+      - name: 5. Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: live
           branch: gh-pages
-
-      - name: 7. Final System Cleanup
-        run: |
-          for i in {401..1000}; do echo "Cleanup Log Line $i: Verified"; done
